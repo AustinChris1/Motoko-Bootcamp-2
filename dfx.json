@@ -1,21 +1,20 @@
 {
   "canisters": {
     "Dao_backend": {
-      "main": "src/Dao_backend/main.mo",
+      "main": "src/Dao_backend/level1.mo",
       "type": "motoko"
     },
-    "Dao_frontend": {
-      "dependencies": [
-        "Dao_backend"
-      ],
-      "frontend": {
-        "entrypoint": "src/Dao_frontend/src/index.html"
-      },
-      "source": [
-        "src/Dao_frontend/assets",
-        "dist/Dao_frontend/"
-      ],
-      "type": "assets"
+    "level2": {
+      "main": "src/Dao_backend/level2.mo",
+      "type": "motoko"
+    },
+    "level3": {
+      "main": "src/Dao_backend/level3.mo",
+      "type": "motoko"
+    },
+    "level4": {
+      "main": "src/Dao_backend/level4.mo",
+      "type": "motoko"
     }
   },
   "defaults": {
