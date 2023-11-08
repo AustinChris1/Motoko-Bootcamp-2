@@ -1,6 +1,6 @@
 import Text "mo:base/Text";
 import Buffer "mo:base/Buffer";
-actor DAO{
+actor Level1{
   
   let name : Text = "Austin's DAO";
   var manifesto : Text = "Funding of Decentralized Projects";

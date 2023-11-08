@@ -8,7 +8,7 @@ import Result "mo:base/Result";
 import Option "mo:base/Option";
 import Account "Extras/account";
 
-actor {
+actor Level3{
 
     type Account = Account.Account;
     

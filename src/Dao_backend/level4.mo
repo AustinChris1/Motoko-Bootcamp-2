@@ -6,6 +6,10 @@ import Principal "mo:base/Principal";
 import TrieMap "mo:base/TrieMap";
 import Hash "mo:base/Hash";
 import Result "mo:base/Result";
+import Debug "mo:base/Debug";
+import Array "mo:base/Array";
+import level2 "canister:level2";
+import level3 "canister:level3";
 actor {
 
     type Status = {
@@ -29,7 +33,7 @@ actor {
     type CreateProposalErr = {
         #NotDAOMember;
         #NotEnoughTokens;
-        
+
     };
 
     type VoteErr = {
@@ -52,56 +56,94 @@ actor {
 
     var nextProposalId : Nat = 0;
 
+    // Intercanister calls
+    // token canister call
 
-    public shared ({caller}) func createProposal(m : Text) : async CreateProposalResult {
-        nextProposalId += 1;
-        var newProposal : Proposal = {
-            id = nextProposalId;
-            status = #Open;
-            manifest = m;
-            votes = 0;
-            voters = [];
+    public shared ({ caller }) func createProposal(m : Text) : async CreateProposalResult {
+        //check if user is member
+        let member = await level2.getMember(caller);
+        switch (member) {
+            case (#err(_)) return #err(#NotDAOMember);
+            case (#ok(member)) {
+
+                // check for enough tokens
+                let account : level3.Account = {
+                    owner = caller;
+                    subaccount = null;
+                };
+                let balance = await level3.balanceOf(account);
+                if (balance < 1) return #err(#NotEnoughTokens);
+                nextProposalId += 1;
+                let newProposal : Proposal = {
+                    id = nextProposalId;
+                    status = #Open;
+                    manifest = m;
+                    votes = 0;
+                    voters = [];
+                };
+                proposals.put(nextProposalId, newProposal);
+                Debug.print(debug_show (newProposal.voters));
+                return #ok(#ProposalCreated(nextProposalId));
+
+            };
         };
-        let hasEnoughTokens = true;
-        let isDaoMember = true;
-        if (isDaoMember == false) return #err(#NotDAOMember);
-        if (hasEnoughTokens == false) return #err(#NotEnoughTokens);
-       
-            proposals.put(nextProposalId, newProposal);
-            return #ok(#ProposalCreated(nextProposalId));
-        
 
     };
 
-    public shared func getProposal(id : Nat) : async ?Proposal {
-        if(proposals.get(id)) {
-            return proposals.get(id);
-        } else {
-            return null;
-        };
+    public shared query func getProposal(id : Nat) : async ?Proposal {
+        proposals.get(id);
     };
 
-    public shared ({caller}) func vote(id : Nat, vote: Bool) : async VoteResult {
-        if(proposals.get(id)) {
-            let proposal = proposals.get(id);
-            if (proposal.status == #Open) {
-                if (proposal.voters.contains(caller)) {
-                    return #err(#AlreadyVoted);
-                } else {
-                    proposal.voters.put(caller);
-                    proposal.votes += 1;
-                    if (proposal.votes >= 2) {
-                        proposal.status = #Accepted;
-                        return #ok(#ProposalAccepted);
-                    } else {
-                        return #ok(#ProposalOpen);
+    public shared ({ caller }) func vote(id : Nat, vote : Bool) : async VoteResult {
+        let p = await getProposal(id);
+        switch (p) {
+            case (?p) {
+                var voters = p.voters;
+                var status = p.status;
+                var newVotes = p.votes;
+
+                let hasVoted = Array.find<Principal>(voters, func voter = voter == caller);
+                switch (hasVoted) {
+                    case (?hasVoted) return #err(#AlreadyVoted);
+                    case (null) {
+                        switch (status) {
+                            case (#Open) {
+                                let voteArray = Array.append<Principal>(voters, [caller]);
+                                if (vote) {
+                                    newVotes += 1;
+                                } else {
+                                    newVotes -= 1;
+                                };
+
+                                if (newVotes >= 100) {
+                                    var status = #Accepted;
+                                    return #ok(#ProposalAccepted);
+                                };
+                                if (newVotes <= -100) {
+                                    var status = #Rejected;
+                                    return #ok(#ProposalRefused);
+                                };
+
+                                let updatedProposal : Proposal = {
+                                    id = p.id;
+                                    status = status;
+                                    manifest = p.manifest;
+                                    votes = newVotes;
+                                    voters = voteArray;
+
+                                };
+                                proposals.put(id, updatedProposal);
+
+                                proposals.put(id, updatedProposal);
+                                return #ok(#ProposalAccepted);
+                            };
+                            case (#Rejected) return #err(#ProposalEnded);
+                            case (#Accepted) return #err(#ProposalEnded);
+                        };
                     };
                 };
-            } else {
-                return #err(#ProposalEnded);
             };
-        } else {
-            return #err(#ProposalNotFound);
+            case (null) return #err(#ProposalNotFound);
         };
     };
 
