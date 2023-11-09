@@ -15,6 +15,10 @@
     "level4": {
       "main": "src/Dao_backend/level4.mo",
       "type": "motoko"
+    },
+    "level5": {
+      "main": "src/Dao_backend/level5.mo",
+      "type": "motoko"
     }
   },
   "defaults": {
